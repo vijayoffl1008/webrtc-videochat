@@ -1,6 +1,8 @@
 from flask import Flask, render_template, request, redirect, url_for, session
 from flask_socketio import SocketIO, emit, join_room, leave_room
 
+import os
+
 # Next two lines are for the issue: https://github.com/miguelgrinberg/python-engineio/issues/142
 from engineio.payload import Payload
 Payload.max_decode_packets = 200
@@ -54,16 +56,16 @@ def on_join_room(data):
     sid = request.sid
     room_id = data["room_id"]
     display_name = session[room_id]["name"]
-    
+
     # register sid to the room
     join_room(room_id)
     _room_of_sid[sid] = room_id
     _name_of_sid[sid] = display_name
-    
+
     # broadcast to others in the room
     print("[{}] New member joined: {}<{}>".format(room_id, display_name, sid))
     emit("user-connect", {"sid": sid, "name": display_name}, broadcast=True, include_self=False, room=room_id)
-    
+
     # add to user list maintained on server
     if room_id not in _users_in_room:
         _users_in_room[room_id] = [sid]
@@ -107,4 +109,8 @@ def on_data(data):
     socketio.emit('data', data, room=target_sid)
 
 if __name__ == "__main__":
-    socketio.run(app, debug=True)
+    base_dir = os.path.dirname(__file__)
+    socketio.run(app, debug=True, host='0.0.0.0',
+                 certfile=os.path.join('certs', 'cert.crt'),
+                 keyfile=os.path.join('certs', 'cert.key'),
+                 server_side=True)
